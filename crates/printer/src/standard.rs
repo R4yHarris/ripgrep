@@ -1457,6 +1457,9 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
         line_number: Option<u64>,
         column: Option<u64>,
     ) -> io::Result<hyperlink::InterpolatorStatus> {
+        if self.config().hyperlink.format().is_empty() {
+            return Ok(hyperlink::InterpolatorStatus::inactive());
+        }
         let Some(hyperpath) = path.as_hyperlink() else {
             return Ok(hyperlink::InterpolatorStatus::inactive());
         };
@@ -1746,6 +1749,7 @@ mod tests {
     use grep_matcher::LineTerminator;
     use grep_regex::{RegexMatcher, RegexMatcherBuilder};
     use grep_searcher::SearcherBuilder;
+    use std::path::Path;
     use termcolor::{Ansi, NoColor};
 
     use super::{ColorSpecs, Standard, StandardBuilder};
@@ -3983,5 +3987,24 @@ e
         let got = printer_contents(&mut printer);
         let expected = "hello\nworld\r\n";
         assert_eq_printed!(expected, got);
+    }
+
+    #[test]
+    fn hyperlink_empty_format_does_not_canonicalize_path() {
+        let matcher = RegexMatcher::new("SHERLOCK|Sherlock").unwrap();
+        let mut printer = StandardBuilder::new().build(Ansi::new(vec![]));
+        let mut sink = printer.sink_with_path(&matcher, Path::new("Cargo.toml"));
+        SearcherBuilder::new()
+            .line_number(false)
+            .build()
+            .search_reader(&matcher, SHERLOCK.as_bytes(), &mut sink)
+            .unwrap();
+        assert!(sink.has_match());
+        let path_debug = format!("{:?}", sink.path);
+        assert!(
+            path_debug.to_lowercase().contains("uninit"),
+            "expected an uninitialized hyperlink cell (canonicalization \
+             skipped), got: {path_debug}"
+        );
     }
 }
