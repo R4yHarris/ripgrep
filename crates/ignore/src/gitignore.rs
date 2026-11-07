@@ -498,6 +498,9 @@ impl GitignoreBuilder {
             if line.starts_with("!") {
                 glob.is_whitelist = true;
                 line = &line[1..];
+                if line.is_empty() {
+                    return Ok(self);
+                }
             }
             if line.starts_with("/") {
                 // `man gitignore` says that if a glob starts with a slash,
@@ -888,6 +891,34 @@ mod tests {
         let empty = Gitignore::empty();
         assert!(empty.is_empty());
         assert_eq!(empty.path(), Path::new(""));
+    }
+
+    #[test]
+    fn bare_exclamation_is_ignored() {
+        let bare = gi_from_str(ROOT, "!\n");
+        assert!(bare.is_empty());
+        assert_eq!(bare.len(), 0);
+        assert_eq!(bare.num_whitelists(), 0);
+        assert!(!bare.matched("anything", false).is_whitelist());
+        assert!(bare.matched("anything", false).is_none());
+
+        let with_ignore = gi_from_str(ROOT, "*.tmp\n!\n");
+        assert_eq!(with_ignore.len(), 1);
+        assert_eq!(with_ignore.num_ignores(), 1);
+        assert_eq!(with_ignore.num_whitelists(), 0);
+        assert!(with_ignore.matched("foo.tmp", false).is_ignore());
+        assert!(!with_ignore.matched("foo.tmp", false).is_whitelist());
+        match with_ignore.matched("foo.tmp", false) {
+            crate::Match::Ignore(glob) => {
+                assert_eq!(glob.actual(), "**/*.tmp");
+                assert!(!glob.is_whitelist());
+            }
+            _ => panic!("expected ignore match"),
+        }
+
+        let mut builder = GitignoreBuilder::new(ROOT);
+        builder.add_str(None, "!\n").unwrap();
+        assert!(builder.globs.is_empty());
     }
 
     #[test]
