@@ -3993,7 +3993,8 @@ e
     fn hyperlink_empty_format_does_not_canonicalize_path() {
         let matcher = RegexMatcher::new("SHERLOCK|Sherlock").unwrap();
         let mut printer = StandardBuilder::new().build(Ansi::new(vec![]));
-        let mut sink = printer.sink_with_path(&matcher, Path::new("Cargo.toml"));
+        let mut sink =
+            printer.sink_with_path(&matcher, Path::new("Cargo.toml"));
         SearcherBuilder::new()
             .line_number(false)
             .build()
