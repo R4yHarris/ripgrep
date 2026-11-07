@@ -348,7 +348,14 @@ impl GitignoreBuilder {
     /// Once a matcher is built, no new globs can be added to it.
     pub fn build(&self) -> Result<Gitignore, Error> {
         if self.globs.is_empty() {
-            return Ok(Gitignore::empty());
+            return Ok(Gitignore {
+                set: GlobSet::empty(),
+                root: self.root.clone(),
+                globs: vec![],
+                num_ignores: 0,
+                num_whitelists: 0,
+                matches: None,
+            });
         }
         let nignore = self.globs.iter().filter(|g| !g.is_whitelist()).count();
         let nwhite = self.globs.iter().filter(|g| g.is_whitelist()).count();
@@ -864,6 +871,23 @@ mod tests {
     #[test]
     fn regression_106() {
         gi_from_str("/", " ");
+
+        let gi = GitignoreBuilder::new("/some/dir").build().unwrap();
+        assert!(gi.is_empty());
+        assert_eq!(gi.path(), Path::new("/some/dir"));
+        assert_eq!(gi.len(), 0);
+        assert_eq!(gi.num_ignores(), 0);
+        assert_eq!(gi.num_whitelists(), 0);
+        assert!(gi.matched("foo", false).is_none());
+        assert!(gi.matched_path_or_any_parents("some/dir/foo", false).is_none());
+
+        let again = GitignoreBuilder::new("/some/dir").build().unwrap();
+        assert_eq!(again.path(), Path::new("/some/dir"));
+        assert!(again.is_empty());
+
+        let empty = Gitignore::empty();
+        assert!(empty.is_empty());
+        assert_eq!(empty.path(), Path::new(""));
     }
 
     #[test]
