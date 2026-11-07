@@ -856,7 +856,11 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    #[allow(deprecated)]
     fn push_alternate(&mut self) -> Result<(), Error> {
+        if self.alternates_stack.len() >= 128 {
+            return Err(self.error(ErrorKind::NestedAlternates));
+        }
         self.alternates_stack.push(self.branches.len());
         self.branches.push(Tokens::default());
         Ok(())
@@ -1240,6 +1244,31 @@ mod tests {
 
     fn rclassn(ranges: &[(char, char)]) -> Token {
         Class { negated: true, ranges: ranges.to_vec() }
+    }
+
+    #[test]
+    fn deeply_nested_alternates_return_error_without_stack_overflow() {
+        let pat = "{".repeat(14000) + "a" + &"}".repeat(14000);
+        let err = Glob::new(&pat).unwrap_err();
+        assert_eq!(&ErrorKind::NestedAlternates, err.kind());
+
+        let accepted = "{".repeat(128) + "a" + &"}".repeat(128);
+        assert!(Glob::new(&accepted).is_ok());
+
+        let rejected = "{".repeat(129) + "a" + &"}".repeat(129);
+        let err = Glob::new(&rejected).unwrap_err();
+        assert_eq!(&ErrorKind::NestedAlternates, err.kind());
+
+        let matcher = Glob::new("{a,{b,c}}").unwrap().compile_matcher();
+        assert!(matcher.is_match("a"));
+        assert!(matcher.is_match("b"));
+        assert!(matcher.is_match("c"));
+        assert!(!matcher.is_match("d"));
+
+        let ordinary = Glob::new("{a,b}").unwrap().compile_matcher();
+        assert!(ordinary.is_match("a"));
+        assert!(ordinary.is_match("b"));
+        assert!(!ordinary.is_match("c"));
     }
 
     syntax!(literal1, "a", vec![Literal('a')]);
