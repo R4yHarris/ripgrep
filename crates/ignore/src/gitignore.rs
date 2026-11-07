@@ -882,7 +882,9 @@ mod tests {
         assert_eq!(gi.num_ignores(), 0);
         assert_eq!(gi.num_whitelists(), 0);
         assert!(gi.matched("foo", false).is_none());
-        assert!(gi.matched_path_or_any_parents("some/dir/foo", false).is_none());
+        assert!(
+            gi.matched_path_or_any_parents("some/dir/foo", false).is_none()
+        );
 
         let again = GitignoreBuilder::new("/some/dir").build().unwrap();
         assert_eq!(again.path(), Path::new("/some/dir"));
